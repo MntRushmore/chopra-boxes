@@ -1,0 +1,60 @@
+{
+  "boxes": [
+    {
+      "code": "KIT-01",
+      "room": "KIT",
+      "items": [
+        { "id": "ex-kit-1", "label": "Pots and pans", "unpacked": false },
+        { "id": "ex-kit-2", "label": "Mixing bowls", "unpacked": false },
+        { "id": "ex-kit-3", "label": "Everyday spices", "unpacked": false }
+      ],
+      "notes": "Example box — tap Delete when you are ready to use this app for real.",
+      "fragile": true,
+      "openFirst": true,
+      "example": true,
+      "createdAt": "2026-08-01T12:00:00.000Z",
+      "updatedAt": "2026-08-01T12:00:00.000Z"
+    },
+    {
+      "code": "BED-01",
+      "room": "BED",
+      "items": [
+        { "id": "ex-bed-1", "label": "Sheets", "unpacked": false },
+        { "id": "ex-bed-2", "label": "Pillowcases", "unpacked": false },
+        { "id": "ex-bed-3", "label": "Alarm clock", "unpacked": false }
+      ],
+      "notes": "Example box — tap Delete when you are ready to use this app for real.",
+      "fragile": false,
+      "openFirst": true,
+      "example": true,
+      "createdAt": "2026-08-01T12:00:00.000Z",
+      "updatedAt": "2026-08-01T12:00:00.000Z"
+    },
+    {
+      "code": "KID-01",
+      "room": "KID",
+      "items": [
+        { "id": "ex-kid-1", "label": "Stuffed animals", "unpacked": false },
+        { "id": "ex-kid-2", "label": "Board games", "unpacked": false },
+        { "id": "ex-kid-3", "label": "Art supplies", "unpacked": false }
+      ],
+      "notes": "Example box — tap Delete when you are ready to use this app for real.",
+      "fragile": false,
+      "openFirst": false,
+      "example": true,
+      "createdAt": "2026-08-01T12:00:00.000Z",
+      "updatedAt": "2026-08-01T12:00:00.000Z"
+    }
+  ],
+  "counters": {
+    "KIT": 1,
+    "BED": 1,
+    "KID": 1,
+    "LIV": 0,
+    "DIN": 0,
+    "BTH": 0,
+    "GAR": 0,
+    "OFF": 0,
+    "OTH": 0
+  }
+}
