@@ -66,7 +66,7 @@ export default function HomePage() {
               <Plus className="size-6 shrink-0" />
               <div>
                 <CardTitle className="text-lg">New box</CardTitle>
-                <CardDescription>Get a code and Sharpie it</CardDescription>
+                <CardDescription>Generate a code and hear it</CardDescription>
               </div>
             </CardHeader>
           </Link>

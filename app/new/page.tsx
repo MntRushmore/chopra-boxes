@@ -1,22 +1,21 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { AppHeader } from "@/components/app-header";
 import { CodeMark } from "@/components/code-mark";
-import { ItemComposer } from "@/components/item-composer";
 import { PageEnter } from "@/components/page-enter";
-import { RoomGrid } from "@/components/room-grid";
-import { ToggleRow } from "@/components/toggle-row";
+import { RoomRow } from "@/components/room-row";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { announceCode, speakCode } from "@/lib/announce";
 import { useBoxStore } from "@/lib/client-store";
-import { isPrefix, normalizePrefix } from "@/lib/codes";
-import { roomMeta, type RoomMeta } from "@/lib/rooms";
+import { isPrefix, normalizeCode, normalizePrefix } from "@/lib/codes";
+import { readLastRoom, writeLastRoom } from "@/lib/last-room";
+import { roomMeta } from "@/lib/rooms";
 import { newId } from "@/lib/utils";
-import type { Box, BoxItem } from "@/lib/types";
+import type { Box } from "@/lib/types";
 
 function NewBoxFlow() {
   const router = useRouter();
@@ -25,153 +24,176 @@ function NewBoxFlow() {
   const requestedCode = searchParams.get("code");
   const preset =
     presetRaw && isPrefix(presetRaw)
-      ? roomMeta(normalizePrefix(presetRaw) ?? presetRaw)
+      ? normalizePrefix(presetRaw) ?? presetRaw.toUpperCase()
       : null;
-  const { createBox, updateBox, peekNextCode, suggestions } = useBoxStore();
+  const requested = requestedCode ? normalizeCode(requestedCode) : null;
 
-  const [room, setRoom] = useState<RoomMeta | null>(preset);
+  const { createBox, updateBox, peekNextCode, ready, boxes } = useBoxStore();
+  const [roomId, setRoomId] = useState(preset ?? "OTH");
   const [box, setBox] = useState<Box | null>(null);
-  const [wrote, setWrote] = useState(false);
-  const [notes, setNotes] = useState("");
+  const [contents, setContents] = useState("");
   const [creating, setCreating] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState<string | null>(null);
+  const contentsRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (!room || box || creating) return;
+    if (preset) {
+      setRoomId(preset);
+      writeLastRoom(preset);
+      return;
+    }
+    setRoomId(readLastRoom());
+  }, [preset]);
+
+  const extras = useMemo(() => {
+    const seen = new Set<string>();
+    for (const item of boxes) {
+      seen.add(item.room.toUpperCase());
+    }
+    return Array.from(seen);
+  }, [boxes]);
+
+  const preview = requested ?? peekNextCode(roomId);
+  const room = roomMeta(roomId);
+
+  function pickRoom(next: string) {
+    setRoomId(next);
+    writeLastRoom(next);
+  }
+
+  async function generate() {
+    if (creating || !ready) return;
+    const codeToSpeak = requested ?? peekNextCode(roomId);
+    announceCode(codeToSpeak);
+    writeLastRoom(roomId);
     setCreating(true);
-    createBox({ room: room.id, code: requestedCode ?? undefined })
-      .then((created) => {
-        setBox(created);
-        toast(`${created.code} is yours — write it on every side`);
-      })
-      .finally(() => setCreating(false));
-  }, [box, createBox, creating, requestedCode, room]);
-
-  async function addItem(label: string) {
-    if (!box) return;
-    const item: BoxItem = { id: newId(), label, unpacked: false };
-    const next = { ...box, items: [...box.items, item] };
-    setBox(next);
-    await updateBox(box.code, { items: next.items });
+    try {
+      const created = await createBox({
+        room: roomId,
+        code: requested ?? undefined,
+      });
+      setBox(created);
+      setContents("");
+      setLastSaved(null);
+      if (created.code !== codeToSpeak) {
+        speakCode(created.code);
+      }
+      if (requested || preset) {
+        router.replace("/new");
+      }
+      requestAnimationFrame(() => contentsRef.current?.focus());
+    } catch {
+      toast("Could not create that box. Try Generate again.");
+    } finally {
+      setCreating(false);
+    }
   }
 
-  async function saveAndOpen() {
-    if (!box) return;
-    await updateBox(box.code, {
-      items: box.items,
-      notes,
-      fragile: box.fragile,
-      openFirst: box.openFirst,
-    });
-    toast(`Saved ${box.code}`);
-    router.replace(`/boxes/${box.code}`);
-  }
-
-  if (!room) {
-    return (
-      <PageEnter>
-        <AppHeader title="New box" backHref="/" />
-        <p className="mb-6 text-base text-muted-foreground">
-          Which room is this box for?
-        </p>
-        <RoomGrid onPick={setRoom} />
-      </PageEnter>
-    );
-  }
-
-  if (!box) {
-    return (
-      <PageEnter>
-        <AppHeader title="New box" backHref="/" />
-        <p className="text-base text-muted-foreground">
-          Getting the next {room.name} code…
-        </p>
-        <p className="mt-12 text-center font-mono text-6xl font-bold tracking-tight">
-          {peekNextCode(room.id)}
-        </p>
-      </PageEnter>
-    );
-  }
-
-  if (!wrote) {
-    return (
-      <PageEnter className="flex min-h-[calc(100dvh-2.4rem)] flex-col">
-        <AppHeader title="Write this" backHref="/" />
-        <div className="flex flex-1 flex-col items-center justify-center text-center">
-          <p className="max-w-xs text-base text-muted-foreground">
-            Big Sharpie letters. Same code on every side.
-          </p>
-          <div className="my-12">
-            <CodeMark code={box.code} room={box.room} size="hero" />
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Top, front, and both ends.
-          </p>
-        </div>
-        <Button
-          type="button"
-          onClick={() => setWrote(true)}
-          className="mt-6 h-14 min-h-14 w-full text-base"
-        >
-          I wrote {box.code} on every side
-        </Button>
-      </PageEnter>
-    );
+  async function save() {
+    if (!box || saving) return;
+    setSaving(true);
+    const text = contents.trim();
+    try {
+      await updateBox(box.code, {
+        items: text
+          ? [{ id: newId(), label: text, unpacked: false }]
+          : box.items,
+      });
+      toast(`Saved ${box.code}`);
+      setLastSaved(box.code);
+      setBox(null);
+      setContents("");
+    } catch {
+      toast("Saved on this phone. You can keep packing.");
+      setLastSaved(box.code);
+      setBox(null);
+      setContents("");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
-    <PageEnter>
-      <AppHeader title="What’s inside?" backHref="/" />
-      <div className="mb-6">
-        <CodeMark code={box.code} room={box.room} size="md" />
-      </div>
-      <ItemComposer suggestions={suggestions} onAdd={addItem} />
-      {box.items.length > 0 ? (
-        <ul className="mt-5 space-y-2">
-          {box.items.map((item) => (
-            <li key={item.id}>
-              <Card>
-                <CardContent className="py-3 text-base font-medium">
-                  {item.label}
-                </CardContent>
-              </Card>
-            </li>
-          ))}
-        </ul>
+    <PageEnter className="flex min-h-[calc(100dvh-2.4rem)] flex-col">
+      <AppHeader title="New box" backHref="/" />
+
+      {!box ? (
+        <div className="flex flex-1 flex-col">
+          <p className="mb-3 text-sm text-muted-foreground">
+            Same room as last time, unless you change it.
+          </p>
+          <RoomRow value={roomId} onChange={pickRoom} extras={extras} />
+
+          <div className="flex flex-1 flex-col items-center justify-center text-center">
+            <p className="max-w-sm text-lg leading-relaxed text-muted-foreground">
+              {lastSaved
+                ? `Saved ${lastSaved}. Tap Generate for the next one.`
+                : "Tap Generate. You’ll hear the code — write it with a Sharpie."}
+            </p>
+            {ready ? (
+              <p className="mt-4 font-mono text-sm text-muted-foreground">
+                Next {room.name}: {preview}
+              </p>
+            ) : null}
+          </div>
+
+          <Button
+            type="button"
+            disabled={!ready || creating}
+            onClick={() => void generate()}
+            className="mt-6 h-24 min-h-24 w-full text-2xl font-semibold"
+          >
+            {!ready ? "Getting ready…" : lastSaved ? "Generate next" : "Generate code"}
+          </Button>
+        </div>
       ) : (
-        <p className="mt-5 text-sm text-muted-foreground">
-          Type an item and press Return. Five things takes about 20 seconds.
-        </p>
+        <form
+          className="flex flex-1 flex-col"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void save();
+          }}
+        >
+          <div className="flex flex-1 flex-col items-center justify-center text-center">
+            <p className="text-sm text-muted-foreground">
+              {roomMeta(box.room).name} · tap the code to hear it again
+            </p>
+            <button
+              type="button"
+              onClick={() => announceCode(box.code)}
+              className="my-8 tap"
+              aria-label={`Hear ${box.code} again`}
+            >
+              <CodeMark code={box.code} room={box.room} size="hero" />
+            </button>
+            <p className="sr-only" aria-live="assertive">
+              {box.code}
+            </p>
+          </div>
+
+          <label className="mb-2 text-sm text-muted-foreground" htmlFor="contents">
+            What’s inside?
+          </label>
+          <Input
+            ref={contentsRef}
+            id="contents"
+            value={contents}
+            onChange={(e) => setContents(e.target.value)}
+            placeholder="Plates, mixer, pantry stuff"
+            autoComplete="off"
+            enterKeyHint="done"
+            className="h-20 min-h-20 text-xl"
+          />
+          <Button
+            type="submit"
+            disabled={saving}
+            className="mt-5 h-20 min-h-20 w-full text-2xl font-semibold"
+          >
+            {saving ? "Saving…" : "Done"}
+          </Button>
+        </form>
       )}
-      <div className="mt-7 space-y-3">
-        <ToggleRow
-          checked={box.fragile}
-          onCheckedChange={async (fragile) => {
-            setBox({ ...box, fragile });
-            await updateBox(box.code, { fragile });
-          }}
-          title="Fragile"
-          hint="Glass, dishes, or anything that breaks"
-        />
-        <ToggleRow
-          checked={box.openFirst}
-          onCheckedChange={async (openFirst) => {
-            setBox({ ...box, openFirst });
-            await updateBox(box.code, { openFirst });
-          }}
-          title="Open first"
-          hint="Need this the first night"
-        />
-        <Input
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          placeholder="Optional note"
-          className="h-14 min-h-14 text-base"
-        />
-      </div>
-      <Button className="mt-8 h-14 min-h-14 w-full text-base" onClick={saveAndOpen}>
-        Done — {box.items.length}{" "}
-        {box.items.length === 1 ? "item" : "items"}
-      </Button>
     </PageEnter>
   );
 }
