@@ -1,10 +1,20 @@
-import { formatCode, parseCode } from "@/lib/codes";
+import { parseCode } from "@/lib/codes";
 
-/** KIT-3 → "KIT 03". Never the room name. */
+/** KIT-3 → "K I T dash 0 3". Spell each letter. */
 export function spokenCode(code: string): string {
   const parsed = parseCode(code);
-  if (!parsed) return code.replace("-", " ");
-  return formatCode(parsed.room, parsed.n).replace("-", " ");
+  if (!parsed) {
+    return code
+      .toUpperCase()
+      .replace(/-/g, " dash ")
+      .split("")
+      .join(" ")
+      .replace(/ +/g, " ")
+      .trim();
+  }
+  const letters = parsed.room.split("").join(" ");
+  const digits = String(parsed.n).padStart(2, "0").split("").join(" ");
+  return `${letters} dash ${digits}`;
 }
 
 type AudioWindow = Window & {
