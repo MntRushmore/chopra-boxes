@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { AppHeader } from "@/components/app-header";
@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { announceCode, speakCode } from "@/lib/announce";
 import { useBoxStore } from "@/lib/client-store";
 import { isPrefix, normalizeCode, normalizePrefix } from "@/lib/codes";
-import { readLastRoom, writeLastRoom } from "@/lib/last-room";
+import { useLastRoom } from "@/lib/last-room";
 import { roomMeta } from "@/lib/rooms";
 import { newId } from "@/lib/utils";
 import type { Box } from "@/lib/types";
@@ -29,22 +29,13 @@ function NewBoxFlow() {
   const requested = requestedCode ? normalizeCode(requestedCode) : null;
 
   const { createBox, updateBox, peekNextCode, ready, boxes } = useBoxStore();
-  const [roomId, setRoomId] = useState(preset ?? "OTH");
+  const [roomId, persistRoom] = useLastRoom(preset);
   const [box, setBox] = useState<Box | null>(null);
   const [contents, setContents] = useState("");
   const [creating, setCreating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<string | null>(null);
   const contentsRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (preset) {
-      setRoomId(preset);
-      writeLastRoom(preset);
-      return;
-    }
-    setRoomId(readLastRoom());
-  }, [preset]);
 
   const extras = useMemo(() => {
     const seen = new Set<string>();
@@ -57,16 +48,11 @@ function NewBoxFlow() {
   const preview = requested ?? peekNextCode(roomId);
   const room = roomMeta(roomId);
 
-  function pickRoom(next: string) {
-    setRoomId(next);
-    writeLastRoom(next);
-  }
-
   async function generate() {
     if (creating || !ready) return;
     const codeToSpeak = requested ?? peekNextCode(roomId);
     announceCode(codeToSpeak);
-    writeLastRoom(roomId);
+    persistRoom(roomId);
     setCreating(true);
     try {
       const created = await createBox({
@@ -123,7 +109,7 @@ function NewBoxFlow() {
           <p className="mb-3 text-sm text-muted-foreground">
             Same room as last time, unless you change it.
           </p>
-          <RoomRow value={roomId} onChange={pickRoom} extras={extras} />
+          <RoomRow value={roomId} onChange={persistRoom} extras={extras} />
 
           <div className="flex flex-1 flex-col items-center justify-center text-center">
             <p className="max-w-sm text-lg leading-relaxed text-muted-foreground">

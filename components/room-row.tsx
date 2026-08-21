@@ -32,7 +32,7 @@ export function RoomRow({
     chips.push(roomMeta(value));
   }
 
-  function useCustom() {
+  function applyCustom() {
     if (!prefix) return;
     onChange(prefix);
     setAdding(false);
@@ -85,7 +85,7 @@ export function RoomRow({
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 e.preventDefault();
-                useCustom();
+                applyCustom();
               }
             }}
             autoCapitalize="characters"
@@ -100,7 +100,7 @@ export function RoomRow({
           <Button
             type="button"
             disabled={!prefix}
-            onClick={useCustom}
+            onClick={applyCustom}
             className="h-14 min-h-14 px-5 text-base"
           >
             {prefix ? `Use ${prefix}` : "Use"}
