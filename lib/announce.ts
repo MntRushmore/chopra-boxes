@@ -1,65 +1,10 @@
-import { parseCode } from "@/lib/codes";
-import { isRoomId, roomMeta } from "@/lib/rooms";
+import { formatCode, parseCode } from "@/lib/codes";
 
-const SMALL = [
-  "zero",
-  "one",
-  "two",
-  "three",
-  "four",
-  "five",
-  "six",
-  "seven",
-  "eight",
-  "nine",
-  "ten",
-  "eleven",
-  "twelve",
-  "thirteen",
-  "fourteen",
-  "fifteen",
-  "sixteen",
-  "seventeen",
-  "eighteen",
-  "nineteen",
-];
-
-const TENS = [
-  "",
-  "",
-  "twenty",
-  "thirty",
-  "forty",
-  "fifty",
-  "sixty",
-  "seventy",
-  "eighty",
-  "ninety",
-];
-
-/** Words a person can Sharpie without looking at the phone. */
-export function spokenNumber(n: number): string {
-  if (!Number.isFinite(n) || n < 0) return String(n);
-  if (n < 20) return SMALL[n];
-  if (n < 100) {
-    const tens = TENS[Math.floor(n / 10)];
-    const ones = n % 10;
-    return ones ? `${tens} ${SMALL[ones]}` : tens;
-  }
-  return String(n)
-    .split("")
-    .map((digit) => SMALL[Number(digit)] ?? digit)
-    .join(" ");
-}
-
-/** KIT-12 → "Kitchen twelve". SE-357 → "S E three five seven". */
+/** KIT-3 → "KIT 03". Never the room name. */
 export function spokenCode(code: string): string {
   const parsed = parseCode(code);
   if (!parsed) return code.replace("-", " ");
-  const prefix = isRoomId(parsed.room)
-    ? roomMeta(parsed.room).name
-    : parsed.room.split("").join(" ");
-  return `${prefix} ${spokenNumber(parsed.n)}`;
+  return formatCode(parsed.room, parsed.n).replace("-", " ");
 }
 
 type AudioWindow = Window & {
